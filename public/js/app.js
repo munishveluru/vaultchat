@@ -182,6 +182,33 @@
         case 'public_key':
           users[data.username] = { ...users[data.username], publicKey: data.publicKey };
           break;
+
+        // ─── Video Call Signaling ───
+        case 'call_offer':
+          handleIncomingCall(data);
+          break;
+
+        case 'call_answer':
+          if (window.RakshaCall) {
+            window.RakshaCall.handleAnswer(data.answer);
+          }
+          break;
+
+        case 'ice_candidate':
+          if (window.RakshaCall) {
+            window.RakshaCall.addIceCandidate(data.candidate);
+          }
+          break;
+
+        case 'call_end':
+          endVideoCall(false);
+          showToast(`${data.from} ended the call`);
+          break;
+
+        case 'call_reject':
+          endVideoCall(false);
+          showToast(`${data.from} declined the call`, 'error');
+          break;
       }
     };
 
@@ -822,6 +849,197 @@
       setTimeout(() => { copyLinkBtn.textContent = 'Copy'; }, 2000);
     }
   });
+
+  // ─── Video Call ───
+  const callOverlay = $('#call-overlay');
+  const localVideoRaw = $('#local-video-raw');
+  const localFilterCanvas = $('#local-filter-canvas');
+  const remoteVideo = $('#remote-video');
+  const callRemoteName = $('#call-remote-name');
+  const callTimer = $('#call-timer');
+  const callMuteBtn = $('#call-mute-btn');
+  const callVideoBtn = $('#call-video-btn');
+  const callFilterBtn = $('#call-filter-btn');
+  const callEndBtn = $('#call-end-btn');
+  const filterPicker = $('#filter-picker');
+  const filterList = $('#filter-list');
+  const videoCallBtn = $('#video-call-btn');
+  const incomingCallModal = $('#incoming-call-modal');
+  const incomingCallName = $('#incoming-call-name');
+  const incomingCallAvatar = $('#incoming-call-avatar');
+  const acceptCallBtn = $('#accept-call-btn');
+  const rejectCallBtn = $('#reject-call-btn');
+
+  let callTimerInterval = null;
+  let callSeconds = 0;
+  let pendingOffer = null;
+  let callTarget = null;
+
+  function startCallTimer() {
+    callSeconds = 0;
+    callTimer.textContent = '00:00';
+    callTimerInterval = setInterval(() => {
+      callSeconds++;
+      const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+      const s = String(callSeconds % 60).padStart(2, '0');
+      callTimer.textContent = `${m}:${s}`;
+    }, 1000);
+  }
+
+  function stopCallTimer() {
+    if (callTimerInterval) clearInterval(callTimerInterval);
+    callTimerInterval = null;
+  }
+
+  function buildFilterPicker() {
+    const filters = window.RakshaCall.FILTERS;
+    filterList.innerHTML = Object.keys(filters).map(key => {
+      const f = filters[key];
+      return `<div class="filter-chip ${key === 'none' ? 'active' : ''}" data-filter="${key}">${f.icon} ${f.name}</div>`;
+    }).join('');
+
+    filterList.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        filterList.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        window.RakshaCall.setFilter(chip.dataset.filter);
+      });
+    });
+  }
+
+  function showCallUI(remoteName) {
+    callOverlay.classList.remove('hidden');
+    callRemoteName.textContent = remoteName;
+    callTarget = remoteName;
+    buildFilterPicker();
+    startCallTimer();
+  }
+
+  function endVideoCall(notify = true) {
+    if (notify && callTarget && ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'call_end', to: callTarget }));
+    }
+    window.RakshaCall.endCall();
+    callOverlay.classList.add('hidden');
+    incomingCallModal.classList.add('hidden');
+    filterPicker.classList.add('hidden');
+    stopCallTimer();
+    callTarget = null;
+    pendingOffer = null;
+    // Reset button states
+    callMuteBtn.classList.remove('muted');
+    callMuteBtn.querySelector('span').textContent = 'Mute';
+    callVideoBtn.classList.remove('muted');
+    callVideoBtn.querySelector('span').textContent = 'Video';
+    callFilterBtn.classList.remove('active');
+  }
+
+  async function initiateCall(targetUser) {
+    if (!window.RakshaCall) { showToast('Video call module not loaded', 'error'); return; }
+    try {
+      showToast('Starting video call...');
+      const stream = await window.RakshaCall.startLocalStream();
+      localVideoRaw.srcObject = stream;
+      localVideoRaw.classList.remove('hidden');
+      window.RakshaCall.startFilterRendering(localVideoRaw, localFilterCanvas);
+
+      showCallUI(targetUser);
+
+      window.RakshaCall.createPeerConnection(
+        (candidate) => {
+          ws.send(JSON.stringify({ type: 'ice_candidate', to: targetUser, candidate }));
+        },
+        (remoteStream) => {
+          remoteVideo.srcObject = remoteStream;
+          $('#remote-no-video').classList.add('hidden');
+        }
+      );
+
+      const offer = await window.RakshaCall.createOffer();
+      ws.send(JSON.stringify({ type: 'call_offer', to: targetUser, offer }));
+    } catch (e) {
+      showToast('Failed to start call: ' + e.message, 'error');
+      endVideoCall(false);
+    }
+  }
+
+  function handleIncomingCall(data) {
+    pendingOffer = data;
+    incomingCallName.textContent = data.from;
+    incomingCallAvatar.textContent = data.from[0].toUpperCase();
+    incomingCallModal.classList.remove('hidden');
+  }
+
+  acceptCallBtn.addEventListener('click', async () => {
+    if (!pendingOffer) return;
+    incomingCallModal.classList.add('hidden');
+    const caller = pendingOffer.from;
+
+    try {
+      const stream = await window.RakshaCall.startLocalStream();
+      localVideoRaw.srcObject = stream;
+      localVideoRaw.classList.remove('hidden');
+      window.RakshaCall.startFilterRendering(localVideoRaw, localFilterCanvas);
+
+      showCallUI(caller);
+
+      window.RakshaCall.createPeerConnection(
+        (candidate) => {
+          ws.send(JSON.stringify({ type: 'ice_candidate', to: caller, candidate }));
+        },
+        (remoteStream) => {
+          remoteVideo.srcObject = remoteStream;
+          $('#remote-no-video').classList.add('hidden');
+        }
+      );
+
+      const answer = await window.RakshaCall.handleOffer(pendingOffer.offer);
+      ws.send(JSON.stringify({ type: 'call_answer', to: caller, answer }));
+      pendingOffer = null;
+    } catch (e) {
+      showToast('Failed to accept call', 'error');
+      endVideoCall(false);
+    }
+  });
+
+  rejectCallBtn.addEventListener('click', () => {
+    if (pendingOffer) {
+      ws.send(JSON.stringify({ type: 'call_reject', to: pendingOffer.from }));
+      pendingOffer = null;
+    }
+    incomingCallModal.classList.add('hidden');
+  });
+
+  videoCallBtn.addEventListener('click', () => {
+    if (!activeChat) return;
+    const user = users[activeChat];
+    if (!user || !user.online) {
+      showToast('User is offline', 'error');
+      return;
+    }
+    initiateCall(activeChat);
+  });
+
+  callMuteBtn.addEventListener('click', () => {
+    const muted = window.RakshaCall.toggleMute();
+    callMuteBtn.classList.toggle('muted', muted);
+    callMuteBtn.querySelector('span').textContent = muted ? 'Unmute' : 'Mute';
+  });
+
+  callVideoBtn.addEventListener('click', () => {
+    const off = window.RakshaCall.toggleVideo();
+    callVideoBtn.classList.toggle('muted', off);
+    callVideoBtn.querySelector('span').textContent = off ? 'Show' : 'Video';
+    $('#local-no-video').classList.toggle('hidden', !off);
+    localFilterCanvas.classList.toggle('hidden', off);
+  });
+
+  callFilterBtn.addEventListener('click', () => {
+    filterPicker.classList.toggle('hidden');
+    callFilterBtn.classList.toggle('active');
+  });
+
+  callEndBtn.addEventListener('click', () => endVideoCall(true));
 
   // ─── Init ───
   initMatrix();

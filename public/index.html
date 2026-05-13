@@ -267,6 +267,12 @@
               </div>
             </div>
             <div class="chat-header-actions">
+              <button class="icon-btn" id="video-call-btn" title="Video Call">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="23,7 16,12 23,17"/>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
+              </button>
               <button class="icon-btn" id="security-info-btn" title="Security info">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -381,6 +387,97 @@
     </div>
   </div>
 
+  <!-- ─── Video Call Overlay ─── -->
+  <div id="call-overlay" class="call-overlay hidden">
+    <div class="call-container">
+      <!-- Remote video (main) -->
+      <div class="call-remote-wrap">
+        <video id="remote-video" autoplay playsinline></video>
+        <div id="remote-no-video" class="call-no-video hidden">
+          <div class="call-no-video-avatar">📹</div>
+          <span>Camera Off</span>
+        </div>
+        <div class="call-remote-name" id="call-remote-name">—</div>
+      </div>
+
+      <!-- Local video (PiP) -->
+      <div class="call-local-wrap" id="call-local-wrap">
+        <video id="local-video-raw" autoplay muted playsinline class="hidden"></video>
+        <canvas id="local-filter-canvas"></canvas>
+        <div id="local-no-video" class="call-no-video hidden">
+          <span>You</span>
+        </div>
+      </div>
+
+      <!-- Call timer -->
+      <div class="call-timer" id="call-timer">00:00</div>
+
+      <!-- Filter selector -->
+      <div id="filter-picker" class="filter-picker hidden">
+        <div class="filter-picker-list" id="filter-list"></div>
+      </div>
+
+      <!-- Call controls -->
+      <div class="call-controls">
+        <button class="call-ctrl-btn" id="call-mute-btn" title="Mute">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+            <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          <span>Mute</span>
+        </button>
+
+        <button class="call-ctrl-btn" id="call-video-btn" title="Toggle Video">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="23,7 16,12 23,17"/>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+          </svg>
+          <span>Video</span>
+        </button>
+
+        <button class="call-ctrl-btn" id="call-filter-btn" title="Filters">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"/>
+          </svg>
+          <span>Filters</span>
+        </button>
+
+        <button class="call-ctrl-btn call-end" id="call-end-btn" title="End Call">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 004 .64 2 2 0 012 2v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 013.06 4.18 2 2 0 015 2h3a2 2 0 012 1.72 12.84 12.84 0 00.64 3.32 2 2 0 01-.45 2.11z"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+          <span>End</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Incoming Call Modal ─── -->
+  <div id="incoming-call-modal" class="incoming-call-overlay hidden">
+    <div class="incoming-call-card">
+      <div class="incoming-call-pulse"></div>
+      <div class="incoming-call-avatar" id="incoming-call-avatar">?</div>
+      <h3 class="incoming-call-name" id="incoming-call-name">—</h3>
+      <p class="incoming-call-desc">Incoming Video Call</p>
+      <div class="incoming-call-actions">
+        <button class="incoming-call-btn reject" id="reject-call-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span>Decline</span>
+        </button>
+        <button class="incoming-call-btn accept" id="accept-call-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="23,7 16,12 23,17"/>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+          </svg>
+          <span>Accept</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ─── Settings Modal ─── -->
   <div id="settings-modal" class="modal-overlay hidden">
     <div class="modal-card settings-card">
@@ -472,6 +569,7 @@
   <div id="toast-container" class="toast-container"></div>
 
   <script src="js/crypto.js"></script>
+  <script src="js/videocall.js"></script>
   <script type="module" src="js/firebase-auth.js"></script>
   <script src="js/app.js"></script>
 </body>

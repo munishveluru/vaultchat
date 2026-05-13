@@ -197,6 +197,19 @@ wss.on('connection', (ws) => {
         }
         break;
       }
+
+      // ─── WebRTC Signaling ───
+      case 'call_offer':
+      case 'call_answer':
+      case 'ice_candidate':
+      case 'call_end':
+      case 'call_reject': {
+        const target = users.get(data.to);
+        if (target && target.ws && target.ws.readyState === 1) {
+          target.ws.send(JSON.stringify({ ...data, from: currentUser }));
+        }
+        break;
+      }
     }
   });
 
