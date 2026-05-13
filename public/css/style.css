@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   VaultChat — Design System
+   Raksha — Design System
    Green & Black Encrypted Aesthetic
    ═══════════════════════════════════════════ */
 
@@ -577,6 +577,97 @@ html, body {
   font-family: var(--font-mono);
 }
 .encryption-indicator svg { width: 14px; height: 14px; }
+.sidebar-footer-actions { display: flex; gap: 4px; }
+
+/* ─── Settings Panel ─── */
+.settings-card { max-width: 480px; }
+.settings-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+.settings-section:last-of-type { border-bottom: none; }
+.settings-section-title {
+  font-size: 11px; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--text-muted);
+  font-weight: 600; margin-bottom: 12px;
+}
+.settings-row {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+.settings-row-info { flex: 1; min-width: 0; }
+.settings-label {
+  font-size: 14px; font-weight: 500;
+  color: var(--text-primary); display: block;
+}
+.settings-desc {
+  font-size: 12px; color: var(--text-muted);
+  display: block; margin-top: 2px;
+}
+.settings-info-box {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; background: rgba(0,255,100,0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+.settings-about { text-align: center; padding: 12px 0; }
+.settings-about-name {
+  font-size: 20px; font-weight: 800;
+  display: block;
+  background: linear-gradient(135deg, var(--green-400), var(--green-200));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.settings-about-version {
+  font-size: 12px; color: var(--text-muted);
+  font-family: var(--font-mono); display: block; margin-top: 4px;
+}
+.btn-danger-outline {
+  width: 100%; padding: 12px; margin-top: 8px;
+  background: transparent;
+  border: 1px solid rgba(255,68,68,0.3);
+  border-radius: var(--radius-md);
+  color: var(--danger); font-size: 13px;
+  font-weight: 600; cursor: pointer;
+  display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+  transition: all 0.2s;
+}
+.btn-danger-outline:hover {
+  background: rgba(255,68,68,0.1);
+  border-color: var(--danger);
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative; width: 44px; height: 24px;
+  flex-shrink: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-500);
+  border-radius: 24px;
+  transition: 0.3s; border: 1px solid var(--glass-border);
+}
+.toggle-slider::before {
+  content: ''; position: absolute;
+  height: 18px; width: 18px;
+  left: 2px; bottom: 2px;
+  background: var(--text-muted);
+  border-radius: 50%; transition: 0.3s;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--green-700);
+  border-color: var(--green-500);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+  background: var(--green-400);
+  box-shadow: 0 0 6px var(--green-400);
+}
 
 /* ─── Chat Main ─── */
 .chat-main {

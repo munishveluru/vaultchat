@@ -1,5 +1,5 @@
 /**
- * VaultChat — Main Application
+ * Raksha — Main Application
  */
 (function () {
   const crypto = new VaultCrypto();
@@ -628,14 +628,42 @@
 
   backBtn.addEventListener('click', () => sidebar.classList.remove('hidden-mobile'));
 
-  logoutBtn.addEventListener('click', () => {
+  logoutBtn.addEventListener('click', async () => {
     if (ws) ws.close();
+    // Sign out of Firebase/Google
+    if (window.VaultAuth) {
+      try { await window.VaultAuth.signOutUser(); } catch(e) {}
+    }
     currentUser = null; activeChat = null; chatHistory = {}; users = {};
-    pendingFile = null;
+    pendingFile = null; googlePhotoUrl = null;
     showScreen('login');
     joinBtn.disabled = false;
     keyStatus.classList.add('hidden');
     usernameInput.value = '';
+    googleUserInfo.classList.add('hidden');
+    showToast('Logged out successfully');
+  });
+
+  // ─── Settings ───
+  const settingsBtn = $('#settings-btn');
+  const settingsModal = $('#settings-modal');
+  const closeSettings = $('#close-settings');
+  const clearDataBtn = $('#clear-data-btn');
+
+  settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+  closeSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
+  settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) settingsModal.classList.add('hidden');
+  });
+
+  clearDataBtn.addEventListener('click', () => {
+    if (confirm('Clear all chat history? This cannot be undone.')) {
+      chatHistory = {};
+      if (activeChat) renderMessages();
+      renderContacts(userSearch.value);
+      showToast('Chat data cleared');
+      settingsModal.classList.add('hidden');
+    }
   });
 
   // ─── Avatar Upload ───
@@ -740,11 +768,11 @@
             btn.addEventListener('click', async () => {
               const name = btn.dataset.name;
               const tel = btn.dataset.tel;
-              const shareText = `Hey ${name}! Join me on VaultChat for encrypted messaging: ${window.location.href}`;
+              const shareText = `Hey ${name}! Join me on Raksha for encrypted messaging: ${window.location.href}`;
 
               if (navigator.share) {
                 try {
-                  await navigator.share({ title: 'VaultChat - Encrypted Chat', text: shareText, url: window.location.href });
+                  await navigator.share({ title: 'Raksha - Encrypted Chat', text: shareText, url: window.location.href });
                   btn.textContent = 'Invited ✓';
                   btn.classList.add('invited');
                 } catch { /* user cancelled */ }

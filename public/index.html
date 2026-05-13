@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="VaultChat — Military-grade end-to-end encrypted messaging. Your conversations, truly private." />
-  <title>VaultChat — Encrypted Messaging</title>
+  <meta name="description" content="Raksha — Military-grade end-to-end encrypted messaging. Your conversations, truly private." />
+  <title>Raksha — Encrypted Messaging</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -36,7 +36,7 @@
             </defs>
           </svg>
         </div>
-        <h1 class="login-title">VaultChat</h1>
+        <h1 class="login-title">Raksha</h1>
         <p class="login-subtitle">End-to-End Encrypted Messaging</p>
       </div>
 
@@ -117,7 +117,7 @@
         </div>
       </div>
 
-      <p class="login-footer">Messages are encrypted before leaving your device.<br/>Not even VaultChat can read them.</p>
+      <p class="login-footer">Messages are encrypted before leaving your device.<br/>Not even Raksha can read them.</p>
     </div>
   </div>
 
@@ -132,7 +132,7 @@
             <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
-            <span class="brand-name">VaultChat</span>
+            <span class="brand-name">Raksha</span>
           </div>
           <button id="sidebar-toggle" class="icon-btn" title="Toggle sidebar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -203,13 +203,21 @@
             </svg>
             <span>E2E Encrypted</span>
           </div>
-          <button id="logout-btn" class="icon-btn danger" title="Disconnect">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-              <polyline points="16,17 21,12 16,7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </button>
+          <div class="sidebar-footer-actions">
+            <button id="settings-btn" class="icon-btn" title="Settings">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+              </svg>
+            </button>
+            <button id="logout-btn" class="icon-btn danger" title="Log Out">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                <polyline points="16,17 21,12 16,7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -355,7 +363,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-      <p class="modal-desc">Invite your phone contacts to chat securely on VaultChat.</p>
+      <p class="modal-desc">Invite your phone contacts to chat securely on Raksha.</p>
       <div id="phone-contacts-list" class="phone-contacts-list"></div>
       <div id="contacts-unsupported" class="contacts-unsupported hidden">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;color:var(--text-muted);margin-bottom:12px">
@@ -370,6 +378,93 @@
           <button id="copy-link-btn" class="btn-copy">Copy</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ─── Settings Modal ─── -->
+  <div id="settings-modal" class="modal-overlay hidden">
+    <div class="modal-card settings-card">
+      <div class="modal-header">
+        <h3>⚙️ Settings</h3>
+        <button id="close-settings" class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="settings-section">
+        <h4 class="settings-section-title">Notifications</h4>
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <span class="settings-label">Message Notifications</span>
+            <span class="settings-desc">Show alerts for new messages</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-notifications" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <span class="settings-label">Sound Effects</span>
+            <span class="settings-desc">Play sound on new messages</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-sound" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4 class="settings-section-title">Privacy</h4>
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <span class="settings-label">Show Typing Indicator</span>
+            <span class="settings-desc">Let others see when you're typing</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-typing" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <span class="settings-label">Message Preview</span>
+            <span class="settings-desc">Show message content in contact list</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-preview" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4 class="settings-section-title">Security</h4>
+        <div class="settings-info-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;color:var(--green-400);flex-shrink:0">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <div>
+            <span class="settings-label">Encryption Active</span>
+            <span class="settings-desc">RSA-2048 + AES-256-GCM · Zero-knowledge server</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4 class="settings-section-title">About</h4>
+        <div class="settings-about">
+          <span class="settings-about-name">Raksha</span>
+          <span class="settings-about-version">v1.0.0 · E2E Encrypted Messenger</span>
+          <span class="settings-desc" style="margin-top:4px">Built with 🛡️ for your privacy</span>
+        </div>
+      </div>
+
+      <button id="clear-data-btn" class="btn-danger-outline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        Clear All Chat Data
+      </button>
     </div>
   </div>
 
