@@ -427,6 +427,108 @@
     usernameInput.value = '';
   });
 
+  // ─── Phone Contacts Import ───
+  const importContactsBtn = $('#import-contacts-btn');
+  const contactsModal = $('#contacts-modal');
+  const closeContactsModal = $('#close-contacts-modal');
+  const phoneContactsList = $('#phone-contacts-list');
+  const contactsUnsupported = $('#contacts-unsupported');
+  const shareLink = $('#share-link');
+  const copyLinkBtn = $('#copy-link-btn');
+
+  importContactsBtn.addEventListener('click', async () => {
+    contactsModal.classList.remove('hidden');
+    shareLink.value = window.location.href;
+
+    // Check if Contact Picker API is available (Android Chrome)
+    if ('contacts' in navigator && 'ContactsManager' in window) {
+      try {
+        const props = ['name', 'tel'];
+        const opts = { multiple: true };
+        const contacts = await navigator.contacts.select(props, opts);
+
+        if (contacts.length > 0) {
+          phoneContactsList.innerHTML = '';
+          contactsUnsupported.classList.add('hidden');
+
+          contacts.forEach(contact => {
+            const name = contact.name ? contact.name[0] : 'Unknown';
+            const tel = contact.tel ? contact.tel[0] : 'No number';
+            const initial = name[0] || '?';
+
+            const item = document.createElement('div');
+            item.className = 'phone-contact-item';
+            item.innerHTML = `
+              <div class="phone-contact-avatar">${initial.toUpperCase()}</div>
+              <div class="phone-contact-info">
+                <div class="phone-contact-name">${escapeHTML(name)}</div>
+                <div class="phone-contact-number">${escapeHTML(tel)}</div>
+              </div>
+              <button class="btn-invite" data-name="${escapeHTML(name)}" data-tel="${escapeHTML(tel)}">Invite</button>
+            `;
+            phoneContactsList.appendChild(item);
+          });
+
+          // Invite button handlers
+          phoneContactsList.querySelectorAll('.btn-invite').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const name = btn.dataset.name;
+              const tel = btn.dataset.tel;
+              const shareText = `Hey ${name}! Join me on VaultChat for encrypted messaging: ${window.location.href}`;
+
+              if (navigator.share) {
+                try {
+                  await navigator.share({ title: 'VaultChat - Encrypted Chat', text: shareText, url: window.location.href });
+                  btn.textContent = 'Invited ✓';
+                  btn.classList.add('invited');
+                } catch { /* user cancelled */ }
+              } else {
+                await navigator.clipboard.writeText(shareText);
+                btn.textContent = 'Copied ✓';
+                btn.classList.add('invited');
+                showToast(`Invite link copied for ${name}`);
+              }
+            });
+          });
+        } else {
+          // User cancelled contact picker
+          phoneContactsList.innerHTML = '';
+          contactsUnsupported.classList.remove('hidden');
+        }
+      } catch (e) {
+        // API error fallback
+        phoneContactsList.innerHTML = '';
+        contactsUnsupported.classList.remove('hidden');
+      }
+    } else {
+      // Contact Picker not supported — show share link
+      phoneContactsList.innerHTML = '';
+      contactsUnsupported.classList.remove('hidden');
+    }
+  });
+
+  closeContactsModal.addEventListener('click', () => {
+    contactsModal.classList.add('hidden');
+  });
+
+  contactsModal.addEventListener('click', (e) => {
+    if (e.target === contactsModal) contactsModal.classList.add('hidden');
+  });
+
+  copyLinkBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareLink.value);
+      copyLinkBtn.textContent = 'Copied ✓';
+      showToast('Link copied to clipboard');
+      setTimeout(() => { copyLinkBtn.textContent = 'Copy'; }, 2000);
+    } catch {
+      shareLink.select();
+      document.execCommand('copy');
+      copyLinkBtn.textContent = 'Copied ✓';
+      setTimeout(() => { copyLinkBtn.textContent = 'Copy'; }, 2000);
+    }
+  });
+
   // ─── Init ───
   initMatrix();
   initParticles();
