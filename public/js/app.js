@@ -533,8 +533,19 @@
   const googleEmailEl = $('#google-email');
 
   googleBtn.addEventListener('click', async () => {
+    // Wait for Firebase to load (ES module loads async)
     if (!window.VaultAuth) {
-      showToast('Firebase loading... try again in a moment', 'error');
+      googleBtn.querySelector('span').textContent = 'Loading...';
+      await new Promise((resolve) => {
+        const check = setInterval(() => {
+          if (window.VaultAuth) { clearInterval(check); resolve(); }
+        }, 200);
+        setTimeout(() => { clearInterval(check); resolve(); }, 5000);
+      });
+    }
+    if (!window.VaultAuth) {
+      showToast('Firebase failed to load. Please refresh and try again.', 'error');
+      googleBtn.querySelector('span').textContent = 'Sign in with Google';
       return;
     }
 

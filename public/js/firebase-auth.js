@@ -2,10 +2,10 @@
  * VaultChat — Firebase Google Authentication
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBTVcW75_wfE87q5EDGaLpAD4XcD7MUjAA",
+  apiKey: "AIzaSyBTVcW75_wFe87q5EDGaLpAD4XcD7MUjAA",
   authDomain: "vaultchat-a09cc.firebaseapp.com",
   projectId: "vaultchat-a09cc",
   storageBucket: "vaultchat-a09cc.firebasestorage.app",
@@ -18,6 +18,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 window.VaultAuth = {
+  ready: true,
   auth,
 
   async signInWithGoogle() {
@@ -30,9 +31,31 @@ window.VaultAuth = {
         photoURL: result.user.photoURL
       };
     } catch (error) {
+      // If popup blocked, try redirect
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+        await signInWithRedirect(auth, provider);
+        return null;
+      }
       console.error('Google sign-in error:', error);
       throw error;
     }
+  },
+
+  async checkRedirectResult() {
+    try {
+      const result = await getRedirectResult(auth);
+      if (result && result.user) {
+        return {
+          uid: result.user.uid,
+          displayName: result.user.displayName,
+          email: result.user.email,
+          photoURL: result.user.photoURL
+        };
+      }
+    } catch (e) {
+      console.error('Redirect result error:', e);
+    }
+    return null;
   },
 
   async signOutUser() {
@@ -71,3 +94,6 @@ window.VaultAuth = {
     return null;
   }
 };
+
+// Notify app.js that Firebase is ready
+window.dispatchEvent(new Event('firebase-ready'));
