@@ -501,6 +501,8 @@
   };
 
   // ─── Event Listeners ───
+  let googlePhotoUrl = null;
+
   joinBtn.addEventListener('click', async () => {
     const name = usernameInput.value.trim();
     if (!name) { showToast('Please enter a username', 'error'); return; }
@@ -522,6 +524,71 @@
   });
 
   usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinBtn.click(); });
+
+  // ─── Google Sign-In ───
+  const googleBtn = $('#google-signin-btn');
+  const googleUserInfo = $('#google-user-info');
+  const googleAvatarImg = $('#google-avatar');
+  const googleNameEl = $('#google-name');
+  const googleEmailEl = $('#google-email');
+
+  googleBtn.addEventListener('click', async () => {
+    if (!window.VaultAuth) {
+      showToast('Firebase loading... try again in a moment', 'error');
+      return;
+    }
+
+    googleBtn.disabled = true;
+    googleBtn.querySelector('span').textContent = 'Signing in...';
+
+    try {
+      const user = await window.VaultAuth.signInWithGoogle();
+      // Show user info
+      googleUserInfo.classList.remove('hidden');
+      googleAvatarImg.src = user.photoURL || '';
+      googleNameEl.textContent = user.displayName;
+      googleEmailEl.textContent = user.email;
+      googlePhotoUrl = user.photoURL;
+
+      // Auto-fill username from Google name
+      const displayName = user.displayName.split(' ')[0]; // First name
+      usernameInput.value = displayName;
+
+      // Auto-generate keys and connect
+      keyStatus.classList.remove('hidden');
+      joinBtn.disabled = true;
+
+      await crypto.generateKeyPair();
+      keyStatus.querySelector('span').textContent = 'Keys generated! Connecting...';
+      currentUser = displayName;
+      connectWS();
+
+      // Set Google photo as avatar after connection
+      setTimeout(() => {
+        if (googlePhotoUrl && ws && ws.readyState === WebSocket.OPEN) {
+          // Use Google profile pic as avatar
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, 128, 128);
+            const avatarDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            setAvatar(myAvatar, currentUser, avatarDataUrl);
+            ws.send(JSON.stringify({ type: 'update_avatar', avatar: avatarDataUrl }));
+          };
+          img.src = googlePhotoUrl;
+        }
+      }, 2000);
+    } catch (e) {
+      showToast('Google sign-in failed', 'error');
+      console.error(e);
+    }
+    googleBtn.disabled = false;
+    googleBtn.querySelector('span').textContent = 'Sign in with Google';
+  });
+
 
   msgInput.addEventListener('input', () => {
     sendBtn.disabled = !msgInput.value.trim() && !pendingFile;
