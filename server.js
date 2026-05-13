@@ -217,7 +217,7 @@ wss.on('connection', (ws) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`\n  ╔══════════════════════════════════════════╗`);
-  console.log(`  ║    🔒 VaultChat Server Running           ║`);
+  console.log(`  ║    🛡️  Raksha Server Running             ║`);
   console.log(`  ║    ─────────────────────────────         ║`);
   console.log(`  ║    Port: ${PORT}                            ║`);
   console.log(`  ║    URL:  http://localhost:${PORT}           ║`);
