@@ -9,6 +9,7 @@
   let users = {};
   let chatHistory = {};
   let typingTimeout = null;
+  let pendingFile = null; // { name, size, type, dataUrl }
 
   // ─── DOM refs ───
   const $ = (s) => document.querySelector(s);
@@ -39,6 +40,11 @@
   const sidebar = $('#sidebar');
   const logoutBtn = $('#logout-btn');
   const toastContainer = $('#toast-container');
+  const avatarWrapper = $('#avatar-wrapper');
+  const avatarInput = $('#avatar-input');
+  const fileInput = $('#file-input');
+  const attachBtn = $('#attach-btn');
+  const filePreview = $('#file-preview');
 
   // ─── Matrix Rain ───
   function initMatrix() {
@@ -138,7 +144,7 @@
         case 'registered':
           showScreen('chat');
           myUsername.textContent = currentUser;
-          myAvatar.textContent = currentUser[0].toUpperCase();
+          setAvatar(myAvatar, currentUser, null);
           myFingerprint.textContent = await crypto.getFingerprint(crypto.publicKeyPem);
           showToast('Secure session established');
           break;
@@ -151,6 +157,10 @@
 
         case 'user_list':
           updateUserList(data.users);
+          // Update own avatar if server has it
+          if (users[currentUser] && users[currentUser].avatar) {
+            setAvatar(myAvatar, currentUser, users[currentUser].avatar);
+          }
           break;
 
         case 'message':
@@ -211,14 +221,20 @@
       const user = users[u];
       const last = chatHistory[u] ? chatHistory[u][chatHistory[u].length - 1] : null;
       const unread = (chatHistory[u] || []).filter(m => m.unread).length;
+      const avatarContent = user.avatar
+        ? `<img src="${user.avatar}" alt="${u}">`
+        : u[0].toUpperCase();
+      const lastPreview = last
+        ? (last.from === currentUser ? 'You: ' : '') + (last.fileMetadata ? '📎 ' + last.fileMetadata.name : last.text.substring(0, 30))
+        : 'Start encrypted conversation';
       return `<div class="contact-item ${activeChat === u ? 'active' : ''}" data-user="${u}">
-        <div class="avatar-circle small">${u[0].toUpperCase()}</div>
+        <div class="avatar-circle small">${avatarContent}</div>
         <div class="contact-info">
           <div class="contact-name">
             ${u}
             <span class="status-dot ${user.online ? 'online' : ''}" style="width:7px;height:7px;"></span>
           </div>
-          <div class="contact-last-msg">${last ? (last.from === currentUser ? 'You: ' : '') + last.text.substring(0, 30) : 'Start encrypted conversation'}</div>
+          <div class="contact-last-msg">${lastPreview}</div>
         </div>
         ${unread > 0 ? `<span class="unread-badge">${unread}</span>` : ''}
       </div>`;
@@ -237,7 +253,7 @@
     securityPanel.classList.add('hidden');
 
     chatName.textContent = username;
-    chatAvatar.textContent = username[0].toUpperCase();
+    setAvatar(chatAvatar, username, users[username] ? users[username].avatar : null);
 
     const user = users[username];
     const statusHTML = user && user.online
@@ -272,7 +288,24 @@
       div.className = `message-bubble ${m.from === currentUser ? 'sent' : 'received'}`;
       div.dataset.id = m.id;
       const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      div.innerHTML = `<div class="message-text">${escapeHTML(m.text)}</div>
+
+      let mediaHTML = '';
+      if (m.fileMetadata && m.fileDataUrl) {
+        const fm = m.fileMetadata;
+        if (fm.type.startsWith('image/')) {
+          mediaHTML = `<div class="message-media"><img src="${m.fileDataUrl}" alt="${escapeHTML(fm.name)}" onclick="window._openLightbox(this.src)" /></div>`;
+        } else if (fm.type.startsWith('video/')) {
+          mediaHTML = `<div class="message-media"><video src="${m.fileDataUrl}" controls playsinline></video></div>`;
+        } else {
+          mediaHTML = `<div class="message-file" onclick="window._downloadFile('${m.fileDataUrl}','${escapeHTML(fm.name)}')">
+            <div class="message-file-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg></div>
+            <div class="message-file-info"><div class="message-file-name">${escapeHTML(fm.name)}</div><div class="message-file-size">${formatSize(fm.size)}</div></div>
+          </div>`;
+        }
+      }
+
+      const textHTML = m.text ? `<div class="message-text">${escapeHTML(m.text)}</div>` : '';
+      div.innerHTML = `${mediaHTML}${textHTML}
         <div class="message-meta">
           <span class="message-time">${time}</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="message-lock"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
@@ -286,7 +319,20 @@
   async function handleIncomingMessage(data) {
     try {
       const plaintext = await crypto.decryptMessage(data.encryptedMessage, data.encryptedKey, data.iv);
-      const msg = { id: data.messageId, from: data.from, text: plaintext, timestamp: data.timestamp, unread: data.from !== activeChat };
+      const msg = {
+        id: data.messageId, from: data.from, text: '',
+        timestamp: data.timestamp, unread: data.from !== activeChat,
+        fileMetadata: data.fileMetadata, fileDataUrl: null
+      };
+
+      // If it's a file message, the plaintext is the dataUrl
+      if (data.fileMetadata) {
+        msg.fileDataUrl = plaintext;
+        msg.text = ''; // file messages have no separate text
+      } else {
+        msg.text = plaintext;
+      }
+
       if (!chatHistory[data.from]) chatHistory[data.from] = [];
       chatHistory[data.from].push(msg);
 
@@ -294,7 +340,8 @@
         renderMessages();
         showTyping(false);
       } else {
-        showToast(`New message from ${data.from}`);
+        const preview = data.fileMetadata ? `📎 ${data.fileMetadata.name}` : 'New message';
+        showToast(`${preview} from ${data.from}`);
       }
       renderContacts(userSearch.value);
     } catch (e) {
@@ -304,7 +351,8 @@
 
   async function sendMessage() {
     const text = msgInput.value.trim();
-    if (!text || !activeChat) return;
+    if (!text && !pendingFile) return;
+    if (!activeChat) return;
 
     const recipient = users[activeChat];
     if (!recipient || !recipient.publicKey) {
@@ -313,21 +361,48 @@
     }
 
     try {
-      const encrypted = await crypto.encryptMessage(text, recipient.publicKey);
       const messageId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
       const timestamp = Date.now();
 
-      ws.send(JSON.stringify({
-        type: 'message', to: activeChat,
-        encryptedMessage: encrypted.encryptedMessage,
-        encryptedKey: encrypted.encryptedKey,
-        iv: encrypted.iv,
-        messageId, timestamp
-      }));
+      if (pendingFile) {
+        // Send file: encrypt the dataUrl as the payload
+        const encrypted = await crypto.encryptMessage(pendingFile.dataUrl, recipient.publicKey);
 
-      const msg = { id: messageId, from: currentUser, text, timestamp, unread: false };
-      if (!chatHistory[activeChat]) chatHistory[activeChat] = [];
-      chatHistory[activeChat].push(msg);
+        ws.send(JSON.stringify({
+          type: 'message', to: activeChat,
+          encryptedMessage: encrypted.encryptedMessage,
+          encryptedKey: encrypted.encryptedKey,
+          iv: encrypted.iv,
+          messageId, timestamp,
+          fileMetadata: { name: pendingFile.name, size: pendingFile.size, type: pendingFile.type }
+        }));
+
+        const msg = {
+          id: messageId, from: currentUser, text: '',
+          timestamp, unread: false,
+          fileMetadata: { name: pendingFile.name, size: pendingFile.size, type: pendingFile.type },
+          fileDataUrl: pendingFile.dataUrl
+        };
+        if (!chatHistory[activeChat]) chatHistory[activeChat] = [];
+        chatHistory[activeChat].push(msg);
+
+        clearPendingFile();
+      } else {
+        // Send text message
+        const encrypted = await crypto.encryptMessage(text, recipient.publicKey);
+
+        ws.send(JSON.stringify({
+          type: 'message', to: activeChat,
+          encryptedMessage: encrypted.encryptedMessage,
+          encryptedKey: encrypted.encryptedKey,
+          iv: encrypted.iv,
+          messageId, timestamp
+        }));
+
+        const msg = { id: messageId, from: currentUser, text, timestamp, unread: false, fileMetadata: null, fileDataUrl: null };
+        if (!chatHistory[activeChat]) chatHistory[activeChat] = [];
+        chatHistory[activeChat].push(msg);
+      }
 
       renderMessages();
       renderContacts(userSearch.value);
@@ -335,7 +410,6 @@
       msgInput.style.height = 'auto';
       sendBtn.disabled = true;
 
-      // Stop typing
       ws.send(JSON.stringify({ type: 'stop_typing', to: activeChat }));
     } catch (e) {
       showToast('Encryption failed', 'error');
@@ -368,6 +442,64 @@
     return div.innerHTML;
   }
 
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  function setAvatar(el, username, avatarUrl) {
+    if (avatarUrl) {
+      el.innerHTML = `<img src="${avatarUrl}" alt="${username}">`;
+    } else {
+      el.textContent = username[0].toUpperCase();
+    }
+  }
+
+  function clearPendingFile() {
+    pendingFile = null;
+    filePreview.classList.add('hidden');
+    filePreview.innerHTML = '';
+    fileInput.value = '';
+    sendBtn.disabled = !msgInput.value.trim();
+  }
+
+  function showFilePreview(file, dataUrl) {
+    filePreview.classList.remove('hidden');
+    let thumbHTML;
+    if (file.type.startsWith('image/')) {
+      thumbHTML = `<img src="${dataUrl}" class="file-preview-thumb" />`;
+    } else if (file.type.startsWith('video/')) {
+      thumbHTML = `<div class="file-preview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg></div>`;
+    } else {
+      thumbHTML = `<div class="file-preview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg></div>`;
+    }
+    filePreview.innerHTML = `${thumbHTML}
+      <div class="file-preview-info">
+        <div class="file-preview-name">${escapeHTML(file.name)}</div>
+        <div class="file-preview-size">${formatSize(file.size)}</div>
+      </div>
+      <button class="file-preview-remove" id="remove-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`;
+    $('#remove-file').addEventListener('click', clearPendingFile);
+    sendBtn.disabled = false;
+  }
+
+  // Lightbox
+  window._openLightbox = function(src) {
+    const lb = document.createElement('div');
+    lb.className = 'lightbox-overlay';
+    lb.innerHTML = `<img src="${src}" />`;
+    lb.addEventListener('click', () => lb.remove());
+    document.body.appendChild(lb);
+  };
+
+  // File download
+  window._downloadFile = function(dataUrl, name) {
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
   // ─── Event Listeners ───
   joinBtn.addEventListener('click', async () => {
     const name = usernameInput.value.trim();
@@ -392,7 +524,7 @@
   usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinBtn.click(); });
 
   msgInput.addEventListener('input', () => {
-    sendBtn.disabled = !msgInput.value.trim();
+    sendBtn.disabled = !msgInput.value.trim() && !pendingFile;
     // Auto-resize
     msgInput.style.height = 'auto';
     msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
@@ -421,11 +553,67 @@
   logoutBtn.addEventListener('click', () => {
     if (ws) ws.close();
     currentUser = null; activeChat = null; chatHistory = {}; users = {};
+    pendingFile = null;
     showScreen('login');
     joinBtn.disabled = false;
     keyStatus.classList.add('hidden');
     usernameInput.value = '';
   });
+
+  // ─── Avatar Upload ───
+  avatarWrapper.addEventListener('click', () => avatarInput.click());
+
+  avatarInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Profile picture must be under 2MB', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      // Resize to 128x128 for efficiency
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128; canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        const size = Math.min(img.width, img.height);
+        const sx = (img.width - size) / 2;
+        const sy = (img.height - size) / 2;
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, 128, 128);
+        const avatarDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setAvatar(myAvatar, currentUser, avatarDataUrl);
+        // Send to server
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'update_avatar', avatar: avatarDataUrl }));
+        }
+        showToast('Profile picture updated');
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ─── File Attachment ───
+  attachBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) {
+      showToast('File size must be under 25MB', 'error');
+      fileInput.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingFile = { name: file.name, size: file.size, type: file.type, dataUrl: reader.result };
+      showFilePreview(file, reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
 
   // ─── Phone Contacts Import ───
   const importContactsBtn = $('#import-contacts-btn');

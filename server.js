@@ -6,13 +6,13 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, maxPayload: 50 * 1024 * 1024 });
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // In-memory store
-const users = new Map();       // username -> { ws, publicKey, online }
+const users = new Map();       // username -> { ws, publicKey, online, avatar }
 const messages = new Map();    // recipientId -> [messages]
 const sessions = new Map();    // sessionId -> username
 
@@ -25,7 +25,8 @@ function broadcastUserList() {
     userList.push({
       username,
       online: data.online,
-      publicKey: data.publicKey
+      publicKey: data.publicKey,
+      avatar: data.avatar || null
     });
   });
 
@@ -84,10 +85,12 @@ wss.on('connection', (ws) => {
 
         currentUser = username;
         sessions.set(sessionId, username);
+        const existingAvatar = users.has(username) ? users.get(username).avatar : null;
         users.set(username, {
           ws,
           publicKey,
-          online: true
+          online: true,
+          avatar: data.avatar || existingAvatar
         });
 
         ws.send(JSON.stringify({
@@ -103,7 +106,7 @@ wss.on('connection', (ws) => {
       }
 
       case 'message': {
-        const { to, encryptedMessage, encryptedKey, iv, timestamp, messageId } = data;
+        const { to, encryptedMessage, encryptedKey, iv, timestamp, messageId, fileMetadata } = data;
 
         if (!to || !encryptedMessage) {
           ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
@@ -117,7 +120,8 @@ wss.on('connection', (ws) => {
           encryptedKey,
           iv,
           timestamp: timestamp || Date.now(),
-          messageId: messageId || uuidv4()
+          messageId: messageId || uuidv4(),
+          fileMetadata: fileMetadata || null
         };
 
         const recipient = users.get(to);
@@ -182,6 +186,15 @@ wss.on('connection', (ws) => {
 
       case 'ping': {
         ws.send(JSON.stringify({ type: 'pong' }));
+        break;
+      }
+
+      case 'update_avatar': {
+        const { avatar } = data;
+        if (currentUser && users.has(currentUser)) {
+          users.get(currentUser).avatar = avatar;
+          broadcastUserList();
+        }
         break;
       }
     }
